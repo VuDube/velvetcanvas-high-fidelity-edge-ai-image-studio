@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Drawer } from 'vaul';
 import { getImages, deleteImage, type SavedImage } from '@/lib/idb';
-import { Trash2, Download, Clock, Image as ImageIcon, Zap, Share2 } from 'lucide-react';
+import { Trash2, Download, Clock, Image as ImageIcon, Zap, Share2, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Lightbox } from './Lightbox';
@@ -34,7 +34,7 @@ export function HistoryDrawer({ children }: { children: React.ReactNode }) {
     e.stopPropagation();
     await deleteImage(id);
     setImages(prev => prev.filter(img => img.id !== id));
-    toast.success('Purged from edge storage');
+    toast.success('Purged from local storage');
   };
   const handleDownload = (e: React.MouseEvent, img: SavedImage) => {
     e.stopPropagation();
@@ -96,7 +96,7 @@ export function HistoryDrawer({ children }: { children: React.ReactNode }) {
                     <p className="text-sm font-bold uppercase tracking-widest opacity-40">Your vision is a blank canvas</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 pb-20">
                     {images.map((img) => (
                       <div
                         key={img.id}
@@ -115,7 +115,6 @@ export function HistoryDrawer({ children }: { children: React.ReactNode }) {
                           !selectionMode && "hover:scale-[1.02] hover:border-white/20"
                         )}
                       >
-                        {/* Force exactly 256px visual style via container */}
                         <div className="w-full h-full relative">
                           <img
                             src={img.url}
@@ -123,6 +122,10 @@ export function HistoryDrawer({ children }: { children: React.ReactNode }) {
                             className="w-full h-full object-cover"
                             loading="lazy"
                           />
+                          <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-md border border-white/5 flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                            <Info className="w-2.5 h-2.5 text-violet-400" />
+                            <span className="text-[8px] text-white/70 font-bold uppercase tracking-tighter">Saved</span>
+                          </div>
                           {selectionMode && (
                             <div className={cn(
                               "absolute inset-0 flex items-center justify-center transition-colors",

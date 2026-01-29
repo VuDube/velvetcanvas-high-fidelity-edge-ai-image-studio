@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Loader2, Image as ImageIcon, Sparkles, History, Wand2, Maximize2, WifiOff } from 'lucide-react';
+import { Send, Loader2, Image as ImageIcon, Sparkles, History, Wand2, Maximize2, WifiOff, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { saveImage, queuePrompt } from '@/lib/idb';
+import { saveImage, queuePrompt, getQueuedPrompts, clearQueue } from '@/lib/idb';
 import { chatService } from '@/lib/chat';
 import { HistoryDrawer } from './HistoryDrawer';
 import { Lightbox } from './Lightbox';
@@ -24,7 +24,13 @@ export function ImageGenerator() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
-    const handleStatusChange = () => setIsOnline(navigator.onLine);
+    const handleStatusChange = () => {
+      const status = navigator.onLine;
+      setIsOnline(status);
+      if (status) {
+        processOfflineQueue();
+      }
+    };
     window.addEventListener('online', handleStatusChange);
     window.addEventListener('offline', handleStatusChange);
     return () => {
@@ -32,6 +38,17 @@ export function ImageGenerator() {
       window.removeEventListener('offline', handleStatusChange);
     };
   }, []);
+  const processOfflineQueue = async () => {
+    const queued = await getQueuedPrompts();
+    if (queued.length === 0) return;
+    toast.info(`Processing ${queued.length} queued prompts...`, {
+      icon: <Zap className="w-4 h-4 text-orange-500" />
+    });
+    for (const p of queued) {
+      await handleGenerate(p, true);
+    }
+    await clearQueue();
+  };
   const adjustHeight = () => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
@@ -39,24 +56,25 @@ export function ImageGenerator() {
     }
   };
   useEffect(() => adjustHeight(), [prompt]);
-  const handleGenerate = async () => {
-    if (!prompt.trim() || isGenerating) return;
+  const handleGenerate = async (targetPrompt?: string, fromQueue = false) => {
+    const activePrompt = targetPrompt || prompt.trim();
+    if (!activePrompt || (isGenerating && !fromQueue)) return;
     if (!isOnline) {
-      await queuePrompt(prompt.trim());
+      await queuePrompt(activePrompt);
       toast.info("Offline Queue Active", {
         description: "Your prompt is saved. We'll generate it when you're back online.",
         icon: <WifiOff className="w-4 h-4" />
       });
       return;
     }
-    setIsGenerating(true);
-    setCurrentImage(null);
+    if (!fromQueue) setIsGenerating(true);
+    if (!fromQueue) setCurrentImage(null);
     const sessionId = chatService.getSessionId();
     try {
       const response = await fetch(`/api/chat/${sessionId}/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: prompt.trim() }),
+        body: JSON.stringify({ prompt: activePrompt }),
       });
       if (response.status === 429) {
         const data = await response.json();
@@ -69,21 +87,25 @@ export function ImageGenerator() {
       const data = await response.json();
       if (data.image) {
         const base64Image = `data:image/png;base64,${data.image}`;
-        setCurrentImage(base64Image);
+        if (!fromQueue) setCurrentImage(base64Image);
         const id = crypto.randomUUID();
         await saveImage(id, {
           id,
-          prompt: prompt.trim(),
+          prompt: activePrompt,
           url: base64Image,
           timestamp: Date.now()
         });
-        toast.success('Masterpiece crystallized');
+        if (fromQueue) {
+          toast.success(`Crystallized: ${activePrompt.slice(0, 20)}...`);
+        } else {
+          toast.success('Masterpiece crystallized');
+        }
       }
     } catch (error: any) {
       console.error('Generation Error:', error);
       toast.error(error.message || 'Server is resting, try again.');
     } finally {
-      setIsGenerating(false);
+      if (!fromQueue) setIsGenerating(false);
     }
   };
   const randomizePrompt = () => {
@@ -174,6 +196,12 @@ export function ImageGenerator() {
               <span className="text-xs font-black uppercase tracking-tighter">Gallery</span>
             </Button>
           </HistoryDrawer>
+          {!isOnline && (
+            <div className="ml-auto flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-500 animate-pulse">
+              <WifiOff className="w-3.5 h-3.5" />
+              <span className="text-[10px] font-black uppercase tracking-tighter">Offline Mode</span>
+            </div>
+          )}
         </div>
         <div className="relative group p-1">
           <div className="absolute -inset-1.5 bg-gradient-to-r from-violet-600/30 via-indigo-600/30 to-violet-600/30 rounded-[32px] blur-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-500" />
@@ -198,7 +226,7 @@ export function ImageGenerator() {
               >
                 <Button
                   size="lg"
-                  onClick={handleGenerate}
+                  onClick={() => handleGenerate()}
                   disabled={!prompt.trim() || isGenerating}
                   className="h-14 px-8 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 active:scale-95 transition-all shrink-0 font-black shadow-glow relative overflow-hidden group/btn"
                 >
@@ -206,7 +234,7 @@ export function ImageGenerator() {
                     <Loader2 className="w-6 h-6 animate-spin" />
                   ) : (
                     <div className="flex items-center gap-2">
-                      <span className="tracking-tighter uppercase text-sm">Crystallize</span>
+                      <span className="tracking-tighter uppercase text-sm">{isOnline ? 'Crystallize' : 'Queue'}</span>
                       <Send className="w-4 h-4 group-hover/btn:translate-x-1 group-hover/btn:-translate-y-1 transition-transform" />
                     </div>
                   )}
