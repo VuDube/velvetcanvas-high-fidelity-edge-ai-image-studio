@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 interface PWAContextType {
   isInstallable: boolean;
   install: () => Promise<void>;
@@ -23,6 +23,7 @@ export function usePWAState() {
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
+      // Only show banner if not already installed
       if (!window.matchMedia('(display-mode: standalone)').matches) {
         setShowBanner(true);
       }
@@ -30,7 +31,7 @@ export function usePWAState() {
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
-  const install = async () => {
+  const install = useCallback(async () => {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
@@ -38,11 +39,14 @@ export function usePWAState() {
       setDeferredPrompt(null);
       setShowBanner(false);
     }
-  };
+  }, [deferredPrompt]);
+  const toggleBanner = useCallback((show: boolean) => {
+    setShowBanner(show);
+  }, []);
   return {
     isInstallable: !!deferredPrompt,
     install,
     showBanner,
-    setShowBanner
+    setShowBanner: toggleBanner
   };
 }

@@ -1,11 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Loader2, Image as ImageIcon, Sparkles, History, Wand2, Maximize2, WifiOff, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { saveImage, queuePrompt, getQueuedPrompts, clearQueue } from '@/lib/idb';
-import { chatService } from '@/lib/chat';
 import { HistoryDrawer } from './HistoryDrawer';
 import { Lightbox } from './Lightbox';
 const CREATIVE_SNIPPETS = [
@@ -23,40 +22,7 @@ export function ImageGenerator() {
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => {
-    const handleStatusChange = () => {
-      const status = navigator.onLine;
-      setIsOnline(status);
-      if (status) {
-        processOfflineQueue();
-      }
-    };
-    window.addEventListener('online', handleStatusChange);
-    window.addEventListener('offline', handleStatusChange);
-    return () => {
-      window.removeEventListener('online', handleStatusChange);
-      window.removeEventListener('offline', handleStatusChange);
-    };
-  }, []);
-  const processOfflineQueue = async () => {
-    const queued = await getQueuedPrompts();
-    if (queued.length === 0) return;
-    toast.info(`Processing ${queued.length} queued prompts...`, {
-      icon: <Zap className="w-4 h-4 text-orange-500" />
-    });
-    for (const p of queued) {
-      await handleGenerate(p, true);
-    }
-    await clearQueue();
-  };
-  const adjustHeight = () => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
-    }
-  };
-  useEffect(() => adjustHeight(), [prompt]);
-  const handleGenerate = async (targetPrompt?: string, fromQueue = false) => {
+  const handleGenerate = useCallback(async (targetPrompt?: string, fromQueue = false) => {
     const activePrompt = targetPrompt || prompt.trim();
     if (!activePrompt || (isGenerating && !fromQueue)) return;
     if (!isOnline) {
@@ -69,9 +35,8 @@ export function ImageGenerator() {
     }
     if (!fromQueue) setIsGenerating(true);
     if (!fromQueue) setCurrentImage(null);
-    const sessionId = chatService.getSessionId();
     try {
-      const response = await fetch(`/api/chat/${sessionId}/generate`, {
+      const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: activePrompt }),
@@ -107,7 +72,40 @@ export function ImageGenerator() {
     } finally {
       if (!fromQueue) setIsGenerating(false);
     }
+  }, [prompt, isGenerating, isOnline]);
+  const processOfflineQueue = useCallback(async () => {
+    const queued = await getQueuedPrompts();
+    if (queued.length === 0) return;
+    toast.info(`Processing ${queued.length} queued prompts...`, {
+      icon: <Zap className="w-4 h-4 text-orange-500" />
+    });
+    for (const p of queued) {
+      await handleGenerate(p, true);
+    }
+    await clearQueue();
+  }, [handleGenerate]);
+  useEffect(() => {
+    const handleStatusChange = () => {
+      const status = navigator.onLine;
+      setIsOnline(status);
+      if (status) {
+        processOfflineQueue();
+      }
+    };
+    window.addEventListener('online', handleStatusChange);
+    window.addEventListener('offline', handleStatusChange);
+    return () => {
+      window.removeEventListener('online', handleStatusChange);
+      window.removeEventListener('offline', handleStatusChange);
+    };
+  }, [processOfflineQueue]);
+  const adjustHeight = () => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
+    }
   };
+  useEffect(() => adjustHeight(), [prompt]);
   const randomizePrompt = () => {
     const snippet = CREATIVE_SNIPPETS[Math.floor(Math.random() * CREATIVE_SNIPPETS.length)];
     setPrompt(prev => prev ? `${prev}, ${snippet}` : snippet);

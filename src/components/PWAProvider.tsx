@@ -25,10 +25,15 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
                   </div>
                   <div>
                     <h3 className="text-sm font-black text-white tracking-tight">T2I UNCENSORED</h3>
-                    <p className="text-[11px] text-zinc-400 font-medium leading-tight mt-0.5">Install the studio for the full edge experience.</p>
+                    <p className="text-[11px] text-zinc-400 font-medium leading-tight mt-0.5">
+                      Install the studio for the full edge experience.
+                    </p>
                   </div>
                 </div>
-                <button onClick={() => setShowBanner(false)} className="p-1 text-zinc-500 hover:text-white transition-colors">
+                <button 
+                  onClick={() => setShowBanner(false)} 
+                  className="p-1 text-zinc-500 hover:text-white transition-colors"
+                >
                   <X className="w-4 h-4" />
                 </button>
               </div>

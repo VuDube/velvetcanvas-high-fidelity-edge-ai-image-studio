@@ -3,7 +3,8 @@ import { Toaster } from '@/components/ui/sonner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { ImageGenerator } from '@/components/ImageGenerator';
 import { Zap, Info, ShieldAlert, Download, BarChart3 } from 'lucide-react';
-import { PWAProvider, usePWA } from '@/components/PWAProvider';
+import { PWAProvider } from '@/components/PWAProvider';
+import { usePWA } from '@/hooks/use-pwa';
 import {
   Tooltip,
   TooltipContent,
@@ -74,7 +75,6 @@ export function HomePage() {
     <PWAProvider>
       <div className="fixed inset-0 bg-zinc-950 text-zinc-100 flex flex-col selection:bg-violet-500/30 overflow-hidden">
         <ThemeToggle className="fixed top-6 right-6 z-50 opacity-0 pointer-events-none" />
-        {/* Balanced Cyber-Noir Ambience */}
         <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
           <div className="absolute top-[-20%] left-[-15%] w-[60%] h-[60%] bg-violet-600/10 blur-[160px] rounded-full animate-pulse" />
           <div className="absolute bottom-[-20%] right-[-15%] w-[60%] h-[60%] bg-indigo-600/10 blur-[160px] rounded-full" />
