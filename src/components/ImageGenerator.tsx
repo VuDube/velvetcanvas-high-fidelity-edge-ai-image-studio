@@ -1,11 +1,19 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Loader2, Image as ImageIcon, Sparkles, Download, RefreshCw } from 'lucide-react';
+import { Send, Loader2, Image as ImageIcon, Sparkles, Download, History, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { saveImage } from '@/lib/idb';
 import { chatService } from '@/lib/chat';
+import { HistoryDrawer } from './HistoryDrawer';
+const CREATIVE_SNIPPETS = [
+  "cinematic lighting, 8k, highly detailed",
+  "masterpiece, ethereal, surreal digital art",
+  "vaporwave aesthetic, neon colors",
+  "pencil sketch, hand-drawn, minimalist",
+  "macro photography, bokeh, sharp focus"
+];
 export function ImageGenerator() {
   const [prompt, setPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -39,7 +47,6 @@ export function ImageGenerator() {
       if (data.image) {
         const base64Image = `data:image/png;base64,${data.image}`;
         setCurrentImage(base64Image);
-        // Save to IndexedDB for persistence
         const id = crypto.randomUUID();
         await saveImage(id, {
           id,
@@ -47,101 +54,150 @@ export function ImageGenerator() {
           url: base64Image,
           timestamp: Date.now()
         });
-        toast.success('Masterpiece ready');
+        toast.success('Masterpiece generated');
       }
     } catch (error: any) {
       console.error('Generation Error:', error);
-      toast.error(error.message || 'The studio is busy, try again later.');
+      toast.error(error.message || 'Server is resting, try again.');
     } finally {
       setIsGenerating(false);
     }
   };
-  const handleDownload = () => {
-    if (!currentImage) return;
-    const link = document.createElement('a');
-    link.href = currentImage;
-    link.download = `velvet-${Date.now()}.png`;
-    link.click();
+  const randomizePrompt = () => {
+    const snippet = CREATIVE_SNIPPETS[Math.floor(Math.random() * CREATIVE_SNIPPETS.length)];
+    setPrompt(prev => prev ? `${prev}, ${snippet}` : snippet);
   };
   return (
-    <div className="h-full flex flex-col gap-6 max-w-4xl mx-auto">
-      {/* Result Area */}
-      <div className="flex-1 min-h-[400px] relative rounded-3xl overflow-hidden border border-white/10 bg-zinc-900/50 backdrop-blur-sm group shadow-2xl">
+    <div className="h-full flex flex-col gap-6 max-w-4xl mx-auto pb-safe">
+      <div className="flex-1 min-h-[420px] relative rounded-[32px] overflow-hidden border border-white/10 bg-zinc-900/40 backdrop-blur-md group shadow-2xl">
         <AnimatePresence mode="wait">
           {isGenerating ? (
-            <motion.div 
+            <motion.div
               key="loading"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-zinc-900/80"
+              className="absolute inset-0 flex flex-col items-center justify-center gap-6 bg-zinc-950/90"
             >
               <div className="relative">
-                <div className="w-16 h-16 border-4 border-violet-500/20 border-t-violet-500 rounded-full animate-spin" />
-                <Sparkles className="absolute inset-0 m-auto w-6 h-6 text-violet-400 animate-pulse" />
+                <div className="w-24 h-24 border-2 border-violet-500/10 border-t-violet-500 rounded-full animate-spin" />
+                <Sparkles className="absolute inset-0 m-auto w-8 h-8 text-violet-400 animate-pulse" />
               </div>
-              <div className="text-center space-y-1">
-                <p className="text-lg font-medium text-white">Dreaming...</p>
-                <p className="text-sm text-zinc-400 px-8 max-w-xs">Mixing light and shadow on the edge</p>
+              <div className="text-center space-y-2">
+                <p className="text-xl font-semibold text-white tracking-tight">Generating... ~3s</p>
+                <p className="text-sm text-zinc-500 font-medium">Mixing light on the edge</p>
+              </div>
+              <div className="absolute bottom-10 left-0 right-0 px-8">
+                <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                  <motion.div 
+                    className="h-full bg-violet-600 shadow-[0_0_10px_rgba(124,58,237,0.5)]"
+                    initial={{ width: "0%" }}
+                    animate={{ width: "100%" }}
+                    transition={{ duration: 4, ease: "linear" }}
+                  />
+                </div>
               </div>
             </motion.div>
           ) : currentImage ? (
-            <motion.div 
+            <motion.div
               key="result"
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
+              initial={{ scale: 0.98, opacity: 0, filter: "blur(10px)" }}
+              animate={{ scale: 1, opacity: 1, filter: "blur(0px)" }}
               className="h-full w-full relative"
             >
-              <img 
-                src={currentImage} 
-                alt="Generated Art" 
+              <img
+                src={currentImage}
+                alt="Generated Art"
                 className="w-full h-full object-contain"
               />
-              <div className="absolute bottom-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button size="icon" variant="secondary" className="rounded-full glass" onClick={handleDownload}>
-                  <Download className="w-4 h-4" />
+              <div className="absolute top-6 right-6 flex flex-col gap-3">
+                <Button 
+                  size="icon" 
+                  variant="secondary" 
+                  className="rounded-full glass h-12 w-12 shadow-xl hover:scale-110 active:scale-90 transition-transform" 
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = currentImage;
+                    link.download = `velvet-${Date.now()}.png`;
+                    link.click();
+                  }}
+                >
+                  <Download className="w-5 h-5" />
                 </Button>
               </div>
             </motion.div>
           ) : (
-            <motion.div 
+            <motion.div
               key="placeholder"
-              className="h-full w-full flex flex-col items-center justify-center text-zinc-500 gap-4"
+              className="h-full w-full flex flex-col items-center justify-center text-zinc-600 gap-6"
             >
-              <div className="p-6 rounded-full bg-zinc-800/50">
-                <ImageIcon className="w-12 h-12 opacity-20" />
+              <div className="relative">
+                <div className="absolute -inset-4 bg-violet-500/5 blur-2xl rounded-full" />
+                <ImageIcon className="w-16 h-16 relative opacity-20" />
               </div>
-              <p className="text-sm font-medium">Describe your vision below</p>
+              <p className="text-sm font-medium tracking-wide uppercase opacity-40">Your vision starts here</p>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
-      {/* Control Deck */}
-      <div className="relative">
-        <div className="absolute -inset-1 bg-gradient-to-r from-violet-600 to-indigo-600 rounded-2xl blur opacity-20 group-focus-within:opacity-40 transition" />
-        <div className="relative bg-zinc-900 border border-white/10 rounded-2xl p-2 shadow-xl focus-within:ring-2 ring-violet-500/50 transition-all">
-          <div className="flex items-end gap-2">
-            <Textarea
-              ref={textareaRef}
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="A cosmic cyberpunk city in neon rain, cinematic lighting, 8k..."
-              className="flex-1 bg-transparent border-none focus-visible:ring-0 text-white placeholder:text-zinc-600 resize-none min-h-[44px] py-3 pl-3"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleGenerate();
-                }
-              }}
-            />
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-2 px-1">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="text-zinc-500 hover:text-white gap-2 h-9 rounded-full bg-white/5"
+            onClick={randomizePrompt}
+          >
+            <Wand2 className="w-4 h-4 text-violet-400" />
+            <span className="text-xs font-semibold">Randomize</span>
+          </Button>
+          <HistoryDrawer>
             <Button 
-              size="icon" 
-              onClick={handleGenerate}
-              disabled={!prompt.trim() || isGenerating}
-              className="h-11 w-11 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 hover:scale-105 active:scale-95 transition-all shrink-0"
+              variant="ghost" 
+              size="sm" 
+              className="text-zinc-500 hover:text-white gap-2 h-9 rounded-full bg-white/5"
             >
-              {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+              <History className="w-4 h-4 text-indigo-400" />
+              <span className="text-xs font-semibold">History</span>
             </Button>
+          </HistoryDrawer>
+        </div>
+        <div className="relative group">
+          <div className="absolute -inset-1 bg-gradient-to-r from-violet-600/20 to-indigo-600/20 rounded-[24px] blur-lg group-focus-within:opacity-100 opacity-0 transition-opacity" />
+          <div className="relative bg-zinc-900/80 border border-white/10 rounded-[24px] p-2.5 shadow-2xl backdrop-blur-md focus-within:ring-1 ring-violet-500/50 transition-all">
+            <div className="flex items-end gap-2">
+              <Textarea
+                ref={textareaRef}
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder="A cosmic cyberpunk city in neon rain..."
+                className="flex-1 bg-transparent border-none focus-visible:ring-0 text-white placeholder:text-zinc-600 resize-none min-h-[48px] py-3.5 pl-4 text-base leading-relaxed"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleGenerate();
+                  }
+                }}
+              />
+              <Button
+                size="lg"
+                onClick={handleGenerate}
+                disabled={!prompt.trim() || isGenerating}
+                className="h-12 px-6 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 hover:brightness-110 active:scale-95 transition-all shrink-0 font-bold shadow-glow relative overflow-hidden group/btn"
+              >
+                {isGenerating ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span>Generate</span>
+                    <Send className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+                  </div>
+                )}
+                {!isGenerating && !prompt.trim() && (
+                  <div className="absolute inset-0 bg-white/10 opacity-20 pointer-events-none" />
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
