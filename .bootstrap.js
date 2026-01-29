@@ -77,13 +77,7 @@ function updateWranglerJsonc() {
 }
 
 function runSetupCommands() {
-    const commands = [
-    "bun add react-zoom-pan-pinch@^2.4.14",
-    "bun add idb-keyval@^6.2.1",
-    "bun add react-use-gesture",
-    "bun add idb-keyval",
-    "bun add react-zoom-pan-pinch idb-keyval"
-];
+    const commands = [];
     
     if (commands.length === 0) {
         console.log('⊘ No setup commands to run');
