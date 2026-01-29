@@ -1,43 +1,12 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Zap, X, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-interface PWAContextType {
-  isInstallable: boolean;
-  install: () => Promise<void>;
-}
-const PWAContext = createContext<PWAContextType>({
-  isInstallable: false,
-  install: async () => {},
-});
-// Fixed linting error by exporting hook separately if needed, 
-// but keeping in file is okay if it's the only export besides the component.
-// Re-arranged to ensure primary export is the component.
+import { PWAContext, usePWAState } from '@/hooks/use-pwa';
 export function PWAProvider({ children }: { children: React.ReactNode }) {
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [showBanner, setShowBanner] = useState(false);
-  useEffect(() => {
-    const handler = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-      if (!window.matchMedia('(display-mode: standalone)').matches) {
-        setShowBanner(true);
-      }
-    };
-    window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
-  const install = async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') {
-      setDeferredPrompt(null);
-      setShowBanner(false);
-    }
-  };
+  const { isInstallable, install, showBanner, setShowBanner } = usePWAState();
   return (
-    <PWAContext.Provider value={{ isInstallable: !!deferredPrompt, install }}>
+    <PWAContext.Provider value={{ isInstallable, install, showBanner, setShowBanner }}>
       {children}
       <AnimatePresence>
         {showBanner && (
@@ -77,8 +46,3 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
     </PWAContext.Provider>
   );
 }
-export const usePWA = () => {
-  const context = useContext(PWAContext);
-  if (!context) throw new Error("usePWA must be used within PWAProvider");
-  return context;
-};

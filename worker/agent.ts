@@ -25,16 +25,17 @@ export class ChatAgent extends Agent<Env, ChatState> {
   }
   private async checkRateLimit(): Promise<{ allowed: boolean; retryAfter?: number }> {
     const now = Math.floor(Date.now() / 1000);
-    const minute = Math.floor(now / 60);
-    const key = `rate_limit_${minute}`;
+    const windowStart = Math.floor(now / 60);
+    const key = `rl_win_${windowStart}`;
+    // Using a simple window-based counter for performance
     const count = await this.ctx.storage.get<number>(key) || 0;
     if (count >= 10) {
       return { allowed: false, retryAfter: 60 - (now % 60) };
     }
     await this.ctx.storage.put(key, count + 1);
-    // Cleanup old rate limit keys
-    const prevKey = `rate_limit_${minute - 1}`;
-    await this.ctx.storage.delete(prevKey);
+    // Non-blocking cleanup of the previous window
+    const prevKey = `rl_win_${windowStart - 1}`;
+    this.ctx.storage.delete(prevKey).catch(() => {});
     return { allowed: true };
   }
   async onRequest(request: Request): Promise<Response> {
@@ -56,21 +57,26 @@ export class ChatAgent extends Agent<Env, ChatState> {
   }
   private async handleImageGeneration(body: GenerateImageRequest): Promise<Response> {
     const { prompt, negative_prompt } = body;
-    // Spec compliance: Min 5 characters
     if (!prompt || prompt.trim().length < 5) {
-      return Response.json({ 
-        success: false, 
-        error: "Vision too short. Minimum 5 characters required to crystallize." 
+      return Response.json({
+        success: false,
+        error: "Vision too short. Minimum 5 characters required to crystallize."
       }, { status: 400 });
     }
-    // Rate Limiting (10 req/min)
     const rateLimit = await this.checkRateLimit();
     if (!rateLimit.allowed) {
-      return Response.json({ 
-        success: false, 
+      return Response.json({
+        success: false,
         error: `Engine cooling down. Try again in ${rateLimit.retryAfter}s.`,
         retryAfter: rateLimit.retryAfter
       }, { status: 429 });
+    }
+    const ai = (this.env as any).AI;
+    if (!ai) {
+      return Response.json({
+        success: false,
+        error: "Edge AI Configuration Error: Binding missing. Check wrangler.jsonc."
+      }, { status: 500 });
     }
     try {
       const promptHash = await this.sha256(prompt + (negative_prompt || ""));
@@ -79,20 +85,19 @@ export class ChatAgent extends Agent<Env, ChatState> {
       if (cachedImage) {
         return Response.json({ success: true, image: cachedImage, cached: true });
       }
-      const ai = (this.env as any).AI;
-      if (!ai) throw new Error("AI Binding not found.");
-      // Exponential Backoff Retry Logic (Up to 3 times)
       let lastError;
+      // Exponential Backoff starting at 500ms for cold starts
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
           if (attempt > 0) {
-            await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 250));
+            const delay = Math.pow(2, attempt) * 500;
+            await new Promise(r => setTimeout(r, delay));
           }
           const seed = Math.floor(Math.random() * 2147483647);
           const inputs = {
             prompt,
-            negative_prompt: "blurry, low quality, distorted, watermark, lowres, text, deformed, bad anatomy, disfigured",
-            num_steps: 20,
+            negative_prompt: negative_prompt || "blurry, low quality, distorted, watermark, lowres, text, deformed, bad anatomy, disfigured",
+            num_steps: 25,
             guidance: 7.5,
             seed
           };
@@ -100,9 +105,6 @@ export class ChatAgent extends Agent<Env, ChatState> {
           const binaryData = await response.arrayBuffer();
           const base64 = btoa(String.fromCharCode(...new Uint8Array(binaryData)));
           await this.ctx.storage.put(cacheKey, base64);
-          // Internal Analytics
-          const totalGen = await this.ctx.storage.get<number>('usage_count') || 0;
-          await this.ctx.storage.put('usage_count', totalGen + 1);
           return Response.json({ success: true, image: base64, seed });
         } catch (e) {
           lastError = e;
