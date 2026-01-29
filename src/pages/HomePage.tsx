@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Toaster } from '@/components/ui/sonner';
-import { ThemeToggle } from '@/components/ThemeToggle';
 import { ImageGenerator } from '@/components/ImageGenerator';
-import { Zap, Info, ShieldAlert, Download, BarChart3, Activity } from 'lucide-react';
-import { PWAProvider } from '@/components/PWAProvider';
+import { Zap, Info, ShieldAlert, Download, Activity } from 'lucide-react';
 import { usePWA } from '@/hooks/use-pwa';
 import {
   Tooltip,
@@ -80,43 +78,41 @@ export function HomePage() {
     return () => clearInterval(interval);
   }, []);
   return (
-    <PWAProvider>
-      <div className="fixed inset-0 bg-zinc-950 text-zinc-100 flex flex-col selection:bg-violet-500/30 overflow-hidden">
-        {/* Background FX */}
-        <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-          <div className="absolute top-[-20%] left-[-15%] w-[60%] h-[60%] bg-violet-600/5 blur-[160px] rounded-full" />
-          <div className="absolute bottom-[-20%] right-[-15%] w-[60%] h-[60%] bg-indigo-600/5 blur-[160px] rounded-full" />
-          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] contrast-150" />
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/[0.01] to-transparent bg-[length:100%_4px] animate-scanline pointer-events-none" />
-        </div>
-        <div className="max-w-7xl mx-auto w-full h-full px-4 sm:px-6 lg:px-8 flex flex-col relative z-10">
-          <Header />
-          <main className="flex-1 py-4 md:py-6 overflow-y-auto scrollbar-hide">
-            <ImageGenerator />
-          </main>
-          <footer className="py-8 text-center flex-shrink-0">
-            <div className="flex flex-col items-center gap-4">
-              <div className="flex items-center gap-6">
-                <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/5">
-                  <Activity className="w-3 h-3 text-violet-500 animate-pulse" />
-                  <span className="text-[10px] text-zinc-400 font-black uppercase tracking-[0.2em]">
-                    {stats?.totalSessions ?? '...'} NODES ACTIVE
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                  <span className="text-[10px] text-zinc-600 font-black uppercase tracking-widest">Low Latency</span>
-                </div>
-              </div>
-              <p className="text-[8px] text-zinc-700 font-bold tracking-[0.6em] uppercase opacity-50">
-                VANILLA EDGE INFRASTRUCTURE • 2025
-              </p>
-            </div>
-          </footer>
-        </div>
-        <Toaster richColors position="bottom-right" closeButton theme="dark" />
+    <div className="fixed inset-0 bg-zinc-950 text-zinc-100 flex flex-col selection:bg-violet-500/30 overflow-hidden">
+      {/* Background FX */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-[-20%] left-[-15%] w-[60%] h-[60%] bg-violet-600/5 blur-[160px] rounded-full" />
+        <div className="absolute bottom-[-20%] right-[-15%] w-[60%] h-[60%] bg-indigo-600/5 blur-[160px] rounded-full" />
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] contrast-150" />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/[0.01] to-transparent bg-[length:100%_4px] animate-scanline pointer-events-none" />
       </div>
-    </PWAProvider>
+      <div className="max-w-7xl mx-auto w-full h-full px-4 sm:px-6 lg:px-8 flex flex-col relative z-10">
+        <Header />
+        <main className="flex-1 py-4 md:py-6 overflow-y-auto scrollbar-hide">
+          <ImageGenerator />
+        </main>
+        <footer className="py-8 text-center flex-shrink-0">
+          <div className="flex flex-col items-center gap-4">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/5">
+                <Activity className="w-3 h-3 text-violet-500 animate-pulse" />
+                <span className="text-[10px] text-zinc-400 font-black uppercase tracking-[0.2em]">
+                  {stats?.totalSessions ?? '...'} NODES ACTIVE
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                <span className="text-[10px] text-zinc-600 font-black uppercase tracking-widest">Low Latency</span>
+              </div>
+            </div>
+            <p className="text-[8px] text-zinc-700 font-bold tracking-[0.6em] uppercase opacity-50">
+              VANILLA EDGE INFRASTRUCTURE • 2025
+            </p>
+          </div>
+        </footer>
+      </div>
+      <Toaster richColors position="bottom-right" closeButton theme="dark" />
+    </div>
   );
 }
 export default HomePage;
