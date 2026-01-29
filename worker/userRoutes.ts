@@ -10,13 +10,11 @@ export function coreRoutes(app: Hono<{ Bindings: Env }>) {
             const agent = await getAgentByName<Env, ChatAgent>(c.env.CHAT_AGENT, sessionId);
             const url = new URL(c.req.url);
             url.pathname = url.pathname.replace(`/api/chat/${sessionId}`, '');
-            // Standardize generation route handling
             const response = await agent.fetch(new Request(url.toString(), {
                 method: c.req.method,
                 headers: c.req.header(),
                 body: c.req.method === 'GET' || c.req.method === 'DELETE' ? undefined : c.req.raw.body
             }));
-            // Force CORS and proper error headers
             const newHeaders = new Headers(response.headers);
             newHeaders.set('Access-Control-Allow-Origin', '*');
             if (response.status === 429) {
@@ -38,6 +36,29 @@ export function coreRoutes(app: Hono<{ Bindings: Env }>) {
     });
 }
 export function userRoutes(app: Hono<{ Bindings: Env }>) {
+    // Atomic Transform: Top-level standardized generation endpoint
+    app.post('/api/generate', async (c) => {
+        try {
+            const globalStudioId = "global-edge-studio";
+            const agent = await getAgentByName<Env, ChatAgent>(c.env.CHAT_AGENT, globalStudioId);
+            // Rewrite internally to /generate
+            const internalUrl = new URL(c.req.url);
+            internalUrl.pathname = "/generate";
+            const response = await agent.fetch(new Request(internalUrl.toString(), {
+                method: 'POST',
+                headers: c.req.header(),
+                body: c.req.raw.body
+            }));
+            const newHeaders = new Headers(response.headers);
+            newHeaders.set('Access-Control-Allow-Origin', '*');
+            return new Response(response.body, {
+                status: response.status,
+                headers: newHeaders
+            });
+        } catch (error) {
+            return c.json({ success: false, error: 'Engine Routing Failure' }, { status: 500 });
+        }
+    });
     app.get('/api/sessions', async (c) => {
         try {
             const controller = getAppController(c.env);

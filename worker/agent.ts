@@ -27,13 +27,11 @@ export class ChatAgent extends Agent<Env, ChatState> {
     const now = Math.floor(Date.now() / 1000);
     const windowStart = Math.floor(now / 60);
     const key = `rl_win_${windowStart}`;
-    // Using a simple window-based counter for performance
     const count = await this.ctx.storage.get<number>(key) || 0;
     if (count >= 10) {
       return { allowed: false, retryAfter: 60 - (now % 60) };
     }
     await this.ctx.storage.put(key, count + 1);
-    // Non-blocking cleanup of the previous window
     const prevKey = `rl_win_${windowStart - 1}`;
     this.ctx.storage.delete(prevKey).catch(() => {});
     return { allowed: true };
@@ -44,7 +42,9 @@ export class ChatAgent extends Agent<Env, ChatState> {
       const method = request.method;
       if (method === 'POST' && url.pathname === '/generate') {
         const body = await request.json() as GenerateImageRequest;
-        return this.handleImageGeneration(body);
+        const acceptHeader = request.headers.get('Accept') || '';
+        const wantsPng = acceptHeader.includes('image/png');
+        return this.handleImageGeneration(body, wantsPng);
       }
       if (method === 'GET' && url.pathname === '/messages') {
         return Response.json({ success: true, data: this.state });
@@ -55,12 +55,12 @@ export class ChatAgent extends Agent<Env, ChatState> {
       return Response.json({ success: false, error: "Internal Error" }, { status: 500 });
     }
   }
-  private async handleImageGeneration(body: GenerateImageRequest): Promise<Response> {
+  private async handleImageGeneration(body: GenerateImageRequest, wantsPng: boolean): Promise<Response> {
     const { prompt, negative_prompt } = body;
     if (!prompt || prompt.trim().length < 5) {
       return Response.json({
         success: false,
-        error: "Vision too short. Minimum 5 characters required to crystallize."
+        error: "Vision too short. Minimum 5 characters required."
       }, { status: 400 });
     }
     const rateLimit = await this.checkRateLimit();
@@ -75,23 +75,25 @@ export class ChatAgent extends Agent<Env, ChatState> {
     if (!ai) {
       return Response.json({
         success: false,
-        error: "Edge AI Configuration Error: Binding missing. Check wrangler.jsonc."
+        error: "Edge AI Configuration Error: Binding missing."
       }, { status: 500 });
     }
     try {
       const promptHash = await this.sha256(prompt + (negative_prompt || ""));
-      const cacheKey = `img_cache_${promptHash}`;
-      const cachedImage = await this.ctx.storage.get<string>(cacheKey);
-      if (cachedImage) {
-        return Response.json({ success: true, image: cachedImage, cached: true });
+      const cacheKey = `img_cache_bin_${promptHash}`;
+      const cachedBinary = await this.ctx.storage.get<ArrayBuffer>(cacheKey);
+      if (cachedBinary) {
+        if (wantsPng) {
+          return new Response(cachedBinary, { headers: { 'Content-Type': 'image/png' } });
+        }
+        const base64 = btoa(String.fromCharCode(...new Uint8Array(cachedBinary)));
+        return Response.json({ success: true, image: base64, cached: true });
       }
       let lastError;
-      // Exponential Backoff starting at 500ms for cold starts
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
           if (attempt > 0) {
-            const delay = Math.pow(2, attempt) * 500;
-            await new Promise(r => setTimeout(r, delay));
+            await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 500));
           }
           const seed = Math.floor(Math.random() * 2147483647);
           const inputs = {
@@ -103,21 +105,19 @@ export class ChatAgent extends Agent<Env, ChatState> {
           };
           const response = await ai.run("@cf/stabilityai/stable-diffusion-xl-base-1.0", inputs);
           const binaryData = await response.arrayBuffer();
+          await this.ctx.storage.put(cacheKey, binaryData);
+          if (wantsPng) {
+            return new Response(binaryData, { headers: { 'Content-Type': 'image/png' } });
+          }
           const base64 = btoa(String.fromCharCode(...new Uint8Array(binaryData)));
-          await this.ctx.storage.put(cacheKey, base64);
           return Response.json({ success: true, image: base64, seed });
         } catch (e) {
           lastError = e;
-          console.warn(`Generation attempt ${attempt + 1} failed:`, e);
         }
       }
-      throw lastError || new Error("Failed after multiple attempts");
+      throw lastError || new Error("Failed after attempts");
     } catch (error: any) {
-      console.error('Image Generation Final Error:', error);
-      return Response.json({
-        success: false,
-        error: error.message || "Failed to generate image"
-      }, { status: 500 });
+      return Response.json({ success: false, error: error.message || "Generation Error" }, { status: 500 });
     }
   }
 }
