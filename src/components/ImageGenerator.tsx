@@ -1,23 +1,26 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Loader2, Image as ImageIcon, Sparkles, Download, History, Wand2 } from 'lucide-react';
+import { Send, Loader2, Image as ImageIcon, Sparkles, Download, History, Wand2, Maximize2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { saveImage } from '@/lib/idb';
 import { chatService } from '@/lib/chat';
 import { HistoryDrawer } from './HistoryDrawer';
+import { Lightbox } from './Lightbox';
 const CREATIVE_SNIPPETS = [
   "cinematic lighting, 8k, highly detailed",
   "masterpiece, ethereal, surreal digital art",
   "vaporwave aesthetic, neon colors",
   "pencil sketch, hand-drawn, minimalist",
-  "macro photography, bokeh, sharp focus"
+  "macro photography, bokeh, sharp focus",
+  "volumetric lighting, cyberpunk, hyper-realistic"
 ];
 export function ImageGenerator() {
   const [prompt, setPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [currentImage, setCurrentImage] = useState<string | null>(null);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const adjustHeight = () => {
     if (textareaRef.current) {
@@ -77,20 +80,20 @@ export function ImageGenerator() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 flex flex-col items-center justify-center gap-6 bg-zinc-950/90"
+              className="absolute inset-0 flex flex-col items-center justify-center gap-6 bg-zinc-950/90 z-20"
             >
               <div className="relative">
                 <div className="w-24 h-24 border-2 border-violet-500/10 border-t-violet-500 rounded-full animate-spin" />
                 <Sparkles className="absolute inset-0 m-auto w-8 h-8 text-violet-400 animate-pulse" />
               </div>
               <div className="text-center space-y-2">
-                <p className="text-xl font-semibold text-white tracking-tight">Generating... ~3s</p>
+                <p className="text-xl font-semibold text-white tracking-tight">Crystallizing Vision...</p>
                 <p className="text-sm text-zinc-500 font-medium">Mixing light on the edge</p>
               </div>
               <div className="absolute bottom-10 left-0 right-0 px-8">
                 <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                  <motion.div 
-                    className="h-full bg-violet-600 shadow-[0_0_10px_rgba(124,58,237,0.5)]"
+                  <motion.div
+                    className="h-full bg-violet-600 shadow-[0_0_15px_rgba(124,58,237,0.7)]"
                     initial={{ width: "0%" }}
                     animate={{ width: "100%" }}
                     transition={{ duration: 4, ease: "linear" }}
@@ -101,28 +104,23 @@ export function ImageGenerator() {
           ) : currentImage ? (
             <motion.div
               key="result"
-              initial={{ scale: 0.98, opacity: 0, filter: "blur(10px)" }}
+              initial={{ scale: 1.05, opacity: 0, filter: "blur(20px)" }}
               animate={{ scale: 1, opacity: 1, filter: "blur(0px)" }}
-              className="h-full w-full relative"
+              className="h-full w-full relative cursor-zoom-in"
+              onClick={() => setIsLightboxOpen(true)}
             >
               <img
                 src={currentImage}
                 alt="Generated Art"
                 className="w-full h-full object-contain"
               />
-              <div className="absolute top-6 right-6 flex flex-col gap-3">
-                <Button 
-                  size="icon" 
-                  variant="secondary" 
-                  className="rounded-full glass h-12 w-12 shadow-xl hover:scale-110 active:scale-90 transition-transform" 
-                  onClick={() => {
-                    const link = document.createElement('a');
-                    link.href = currentImage;
-                    link.download = `velvet-${Date.now()}.png`;
-                    link.click();
-                  }}
+              <div className="absolute bottom-6 right-6 flex gap-3">
+                 <Button
+                  size="icon"
+                  variant="secondary"
+                  className="rounded-full glass h-12 w-12 shadow-xl hover:scale-110 transition-transform"
                 >
-                  <Download className="w-5 h-5" />
+                  <Maximize2 className="w-5 h-5 text-white" />
                 </Button>
               </div>
             </motion.div>
@@ -142,9 +140,9 @@ export function ImageGenerator() {
       </div>
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-2 px-1">
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             className="text-zinc-500 hover:text-white gap-2 h-9 rounded-full bg-white/5"
             onClick={randomizePrompt}
           >
@@ -152,9 +150,9 @@ export function ImageGenerator() {
             <span className="text-xs font-semibold">Randomize</span>
           </Button>
           <HistoryDrawer>
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               className="text-zinc-500 hover:text-white gap-2 h-9 rounded-full bg-white/5"
             >
               <History className="w-4 h-4 text-indigo-400" />
@@ -193,14 +191,17 @@ export function ImageGenerator() {
                     <Send className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
                   </div>
                 )}
-                {!isGenerating && !prompt.trim() && (
-                  <div className="absolute inset-0 bg-white/10 opacity-20 pointer-events-none" />
-                )}
               </Button>
             </div>
           </div>
         </div>
       </div>
+      <Lightbox 
+        isOpen={isLightboxOpen}
+        onClose={() => setIsLightboxOpen(false)}
+        imageUrl={currentImage}
+        prompt={prompt}
+      />
     </div>
   );
 }
