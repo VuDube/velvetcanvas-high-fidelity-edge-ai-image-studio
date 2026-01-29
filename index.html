@@ -1,30 +1,72 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React + TS</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%237c3aed'/><path d='M50 20 L75 45 L50 45 L50 80 L25 55 L50 55 Z' fill='white'/></svg>" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>⚡ T2I Uncensored - SDXL Edge Studio</title>
+    <meta name="description" content="High-fidelity uncensored image generation on the edge." />
+    <!-- PWA & Native App Meta -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="T2I Studio" />
+    <meta name="theme-color" content="#09090b" />
+    <!-- Inline Manifest for Zero-Config PWA -->
+    <link rel="manifest" href="data:application/manifest+json;base64,ewogICJuYW1lIjogIlQySSBVbmNlbnNvcmVkIiwKICAic2hvcnRfbmFtZSI6ICJUMkkifSwKICAic3RhcnRfdXJsIjogIi8iLAogICJkaXNwbGF5IjogInN0YW5kYWxvbmUiLAogICJiYWNrZ3JvdW5kX2NvbG9yIjogIiMwOTA5MGIiLAogICJ0aGVtZV9jb2xvciI6ICIjMDkwOTBiIiwKICAiaWNvbnMiOiBbCiAgICB7CiAgICAgICJzcmMiOiAiZGF0YTppbWFnZS9zdmcreG1sLGh0dHBzOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIsCiAgICAgICJzaXplcyI6ICIxOTJ4MTkyIiwKICAgICAgInR5cGUiOiAiaW1hZ2Uvc3ZnK3htbCIKICAgIH0KICBdCn0=" />
+    <style>
+      /* Prevent elastic bounce on iOS while allowing internal scrolling */
+      html, body {
+        height: 100%;
+        width: 100%;
+        overflow: hidden;
+        position: fixed;
+      }
+      #root {
+        height: 100%;
+        width: 100%;
+      }
+      /* Loading screen style */
+      #app-preloader {
+        position: fixed;
+        inset: 0;
+        background: #09090b;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        transition: opacity 0.5s ease;
+      }
+      .loader-pulse {
+        width: 60px;
+        height: 60px;
+        background: linear-gradient(135deg, #f97316, #7c3aed);
+        border-radius: 18px;
+        animation: pulse 1.5s infinite;
+      }
+      @keyframes pulse {
+        0% { transform: scale(0.9); opacity: 0.5; }
+        50% { transform: scale(1.1); opacity: 1; }
+        100% { transform: scale(0.9); opacity: 0.5; }
+      }
+    </style>
   </head>
   <body>
+    <div id="app-preloader">
+      <div class="loader-pulse"></div>
+    </div>
     <div id="root"></div>
-    <script>
-        window.addEventListener('error', (event) => {
-          const isOurAppError = event.filename && event.filename.startsWith(window.location.origin);
-          if (isOurAppError) {
-            navigator.sendBeacon('/api/client-errors', JSON.stringify({
-              message: event.message,
-              url: window.location.href,
-              userAgent: navigator.userAgent,
-              source: event.filename,
-              lineno: event.lineno,
-              colno: event.colno,
-              stack: event.error ? event.error.stack : null,
-              timestamp: new Date().toISOString()
-            }));
-          }
-        }, true);
-    </script>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      window.addEventListener('load', () => {
+        setTimeout(() => {
+          const loader = document.getElementById('app-preloader');
+          if (loader) {
+            loader.style.opacity = '0';
+            setTimeout(() => loader.remove(), 500);
+          }
+        }, 800);
+      });
+    </script>
   </body>
 </html>

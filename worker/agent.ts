@@ -2,8 +2,6 @@ import { Agent } from 'agents';
 import type { Env } from './core-utils';
 import type { ChatState, GenerateImageRequest } from './types';
 import { ChatHandler } from './chat';
-import { API_RESPONSES } from './config';
-import { createMessage } from './utils';
 export class ChatAgent extends Agent<Env, ChatState> {
   private chatHandler?: ChatHandler;
   initialState: ChatState = {
@@ -19,19 +17,22 @@ export class ChatAgent extends Agent<Env, ChatState> {
       this.state.model
     );
   }
+  private async sha256(message: string) {
+    const msgBuffer = new TextEncoder().encode(message);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  }
   async onRequest(request: Request): Promise<Response> {
     try {
       const url = new URL(request.url);
       const method = request.method;
-      // New route for specialized image generation
       if (method === 'POST' && url.pathname === '/generate') {
-        return this.handleImageGeneration(await request.json());
+        const body = await request.json() as GenerateImageRequest;
+        return this.handleImageGeneration(body);
       }
       if (method === 'GET' && url.pathname === '/messages') {
         return Response.json({ success: true, data: this.state });
-      }
-      if (method === 'POST' && url.pathname === '/chat') {
-        return Response.json({ success: false, error: "Use /generate for VelvetCanvas" }, { status: 400 });
       }
       return Response.json({ success: false, error: "Not Found" }, { status: 404 });
     } catch (error) {
@@ -41,29 +42,39 @@ export class ChatAgent extends Agent<Env, ChatState> {
   }
   private async handleImageGeneration(body: GenerateImageRequest): Promise<Response> {
     const { prompt, negative_prompt } = body;
-    if (!prompt) {
-      return Response.json({ success: false, error: "Prompt is required" }, { status: 400 });
+    if (!prompt || prompt.length < 5) {
+      return Response.json({ success: false, error: "Prompt must be at least 5 characters" }, { status: 400 });
     }
     try {
-      // Use Cloudflare Workers AI directly for SDXL
-      // Note: In local dev, this might need fallback if AI binding isn't mocked
-      // @ts-ignore - access AI binding from env
+      const promptHash = await this.sha256(prompt + (negative_prompt || ""));
+      const cacheKey = `img_cache_${promptHash}`;
+      // Check Durable Object storage for instant cache hit
+      const cachedImage = await this.ctx.storage.get<string>(cacheKey);
+      if (cachedImage) {
+        return Response.json({ success: true, image: cachedImage, cached: true });
+      }
+      // @ts-expect-error - access AI binding from env provided by Cloudflare
       const ai = (this.env as any).AI;
       if (!ai) {
-        throw new Error("AI Binding not found. Ensure wrangler.jsonc has [ai] configuration.");
+        throw new Error("AI Binding not found. Check wrangler configuration.");
       }
+      const seed = Math.floor(Math.random() * 2147483647);
       const inputs = {
         prompt,
-        negative_prompt: negative_prompt || "blurry, low quality, distorted, watermark",
-        num_steps: 20
+        negative_prompt: negative_prompt || "blurry, low quality, distorted, watermark, lowres, text, deformed",
+        num_steps: 20,
+        guidance: 7.5,
+        seed
       };
       const response = await ai.run("@cf/stabilityai/stable-diffusion-xl-base-1.0", inputs);
-      // The AI model returns a binary stream for images
       const binaryData = await response.arrayBuffer();
       const base64 = btoa(String.fromCharCode(...new Uint8Array(binaryData)));
+      // Persist to DO storage for future identical prompts
+      await this.ctx.storage.put(cacheKey, base64);
       return Response.json({
         success: true,
-        image: base64
+        image: base64,
+        seed
       });
     } catch (error: any) {
       console.error('Image Generation Error:', error);
