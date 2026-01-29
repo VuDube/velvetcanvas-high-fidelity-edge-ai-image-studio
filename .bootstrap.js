@@ -82,7 +82,7 @@ function runSetupCommands() {
     "bun add idb-keyval@^6.2.1",
     "bun add react-use-gesture",
     "bun add idb-keyval",
-    "bun add react-zoom-pan-pinch"
+    "bun add react-zoom-pan-pinch idb-keyval"
 ];
     
     if (commands.length === 0) {
