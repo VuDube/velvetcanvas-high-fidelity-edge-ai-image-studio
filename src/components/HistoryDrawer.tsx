@@ -1,16 +1,31 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Drawer } from 'vaul';
 import { getImages, deleteImage, type SavedImage } from '@/lib/idb';
-import { Trash2, Download, Clock, Image as ImageIcon, Zap, Share2, Info } from 'lucide-react';
+import { Trash2, Download, Image as ImageIcon, Zap, Share2, Info, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Lightbox } from './Lightbox';
 import { cn } from '@/lib/utils';
+import { motion, AnimatePresence } from 'framer-motion';
 export function HistoryDrawer({ children }: { children: React.ReactNode }) {
   const [images, setImages] = useState<SavedImage[]>([]);
-  const [selectedImage, setSelectedImage] = useState<SavedImage | null>(null);
+  const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // Manage object URLs for gallery items
+  const objectUrls = useMemo(() => {
+    const map = new Map<string, string>();
+    images.forEach(img => {
+      map.set(img.id, URL.createObjectURL(img.blob));
+    });
+    return map;
+  }, [images]);
+  // Cleanup object URLs when images change or component unmounts
+  useEffect(() => {
+    return () => {
+      objectUrls.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, [objectUrls]);
   const loadImages = async () => {
     const data = await getImages();
     setImages(data);
@@ -22,27 +37,31 @@ export function HistoryDrawer({ children }: { children: React.ReactNode }) {
     setSelectedIds(newSet);
   };
   const handleBulkDelete = async () => {
+    const count = selectedIds.size;
     for (const id of Array.from(selectedIds)) {
       await deleteImage(id);
     }
     setImages(prev => prev.filter(img => !selectedIds.has(img.id)));
     setSelectedIds(new Set());
     setSelectionMode(false);
-    toast.success(`${selectedIds.size} images purged from edge.`);
+    toast.success(`${count} artworks purged.`);
   };
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     await deleteImage(id);
     setImages(prev => prev.filter(img => img.id !== id));
-    toast.success('Purged from local storage');
+    toast.success('Artwork deleted');
   };
   const handleDownload = (e: React.MouseEvent, img: SavedImage) => {
     e.stopPropagation();
+    const url = objectUrls.get(img.id);
+    if (!url) return;
     const link = document.createElement('a');
-    link.href = img.url;
-    link.download = `t2i-${img.id.slice(0, 8)}.png`;
+    link.href = url;
+    link.download = `art-${img.id.slice(0, 8)}.png`;
     link.click();
   };
+  const activeLightboxImage = images.find(img => img.id === selectedImageId);
   return (
     <>
       <Drawer.Root onOpenChange={(open) => {
@@ -61,71 +80,62 @@ export function HistoryDrawer({ children }: { children: React.ReactNode }) {
               <div className="max-w-4xl mx-auto">
                 <div className="flex items-center justify-between mb-8">
                   <div className="flex items-center gap-3">
-                    <div className="p-2.5 rounded-2xl bg-violet-600/20 text-violet-400">
-                      <Zap className="w-6 h-6 fill-current" />
+                    <div className="p-2.5 rounded-2xl bg-indigo-600/20 text-indigo-400">
+                      <ImageIcon className="w-6 h-6" />
                     </div>
                     <div>
-                      <h2 className="text-2xl font-black text-white tracking-tighter uppercase">Studio Gallery</h2>
-                      <p className="text-[10px] text-zinc-500 font-bold tracking-[0.2em] uppercase">Edge Stored • Uncensored</p>
+                      <h2 className="text-2xl font-black text-white tracking-tighter uppercase">Gallery</h2>
+                      <p className="text-[10px] text-zinc-500 font-bold tracking-[0.2em] uppercase">Edge Vault</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {images.length > 0 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setSelectionMode(!selectionMode);
-                          setSelectedIds(new Set());
-                        }}
-                        className={cn(
-                          "rounded-full px-4 font-bold text-[11px] uppercase tracking-wider transition-all",
-                          selectionMode ? "bg-violet-600 text-white" : "bg-white/5 text-zinc-400"
-                        )}
-                      >
-                        {selectionMode ? 'Cancel' : 'Select'}
-                      </Button>
-                    )}
-                  </div>
+                  {images.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectionMode(!selectionMode);
+                        setSelectedIds(new Set());
+                      }}
+                      className={cn(
+                        "rounded-full px-4 font-bold text-[11px] uppercase tracking-wider transition-all",
+                        selectionMode ? "bg-violet-600 text-white" : "bg-white/5 text-zinc-400"
+                      )}
+                    >
+                      {selectionMode ? 'Cancel' : 'Manage'}
+                    </Button>
+                  )}
                 </div>
                 {images.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-32 text-zinc-700 gap-6">
-                    <div className="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center">
-                      <ImageIcon className="w-10 h-10 opacity-20" />
-                    </div>
-                    <p className="text-sm font-bold uppercase tracking-widest opacity-40">Your vision is a blank canvas</p>
+                    <ImageIcon className="w-16 h-16 opacity-10" />
+                    <p className="text-sm font-bold uppercase tracking-widest opacity-40">The vault is empty</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 pb-20">
-                    {images.map((img) => (
-                      <div
-                        key={img.id}
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          setSelectionMode(true);
-                          toggleSelection(img.id);
-                        }}
-                        onClick={() => {
-                          if (selectionMode) toggleSelection(img.id);
-                          else setSelectedImage(img);
-                        }}
-                        className={cn(
-                          "group relative aspect-square rounded-[24px] overflow-hidden bg-zinc-900 border transition-all duration-300 cursor-pointer shadow-xl",
-                          selectionMode && selectedIds.has(img.id) ? "border-violet-500 ring-4 ring-violet-500/20 scale-95" : "border-white/5 scale-100",
-                          !selectionMode && "hover:scale-[1.02] hover:border-white/20"
-                        )}
-                      >
-                        <div className="w-full h-full relative">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 pb-24">
+                    <AnimatePresence>
+                      {images.map((img) => (
+                        <motion.div
+                          layout
+                          key={img.id}
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.8 }}
+                          onClick={() => {
+                            if (selectionMode) toggleSelection(img.id);
+                            else setSelectedImageId(img.id);
+                          }}
+                          className={cn(
+                            "group relative aspect-square rounded-[24px] overflow-hidden bg-zinc-900 border transition-all cursor-pointer",
+                            selectionMode && selectedIds.has(img.id) ? "border-violet-500 ring-4 ring-violet-500/20 scale-95" : "border-white/5",
+                            !selectionMode && "hover:border-white/20"
+                          )}
+                        >
                           <img
-                            src={img.url}
+                            src={objectUrls.get(img.id)}
                             alt={img.prompt}
                             className="w-full h-full object-cover"
                             loading="lazy"
                           />
-                          <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-md border border-white/5 flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-                            <Info className="w-2.5 h-2.5 text-violet-400" />
-                            <span className="text-[8px] text-white/70 font-bold uppercase tracking-tighter">Saved</span>
-                          </div>
                           {selectionMode && (
                             <div className={cn(
                               "absolute inset-0 flex items-center justify-center transition-colors",
@@ -140,23 +150,20 @@ export function HistoryDrawer({ children }: { children: React.ReactNode }) {
                             </div>
                           )}
                           {!selectionMode && (
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
-                              <p className="text-[11px] font-medium text-white/90 line-clamp-2 mb-3 leading-tight tracking-tight">
-                                {img.prompt}
-                              </p>
-                              <div className="flex gap-2">
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3">
+                              <div className="flex justify-between items-center">
                                 <Button
                                   size="icon"
-                                  variant="secondary"
-                                  className="h-8 w-8 rounded-xl glass bg-white/10"
+                                  variant="ghost"
+                                  className="h-8 w-8 rounded-lg text-white hover:bg-white/10"
                                   onClick={(e) => handleDownload(e, img)}
                                 >
                                   <Download className="w-4 h-4" />
                                 </Button>
                                 <Button
                                   size="icon"
-                                  variant="destructive"
-                                  className="h-8 w-8 rounded-xl bg-rose-500/20 text-rose-500 border-none hover:bg-rose-500 hover:text-white"
+                                  variant="ghost"
+                                  className="h-8 w-8 rounded-lg text-rose-500 hover:bg-rose-500/20"
                                   onClick={(e) => handleDelete(e, img.id)}
                                 >
                                   <Trash2 className="w-4 h-4" />
@@ -164,36 +171,40 @@ export function HistoryDrawer({ children }: { children: React.ReactNode }) {
                               </div>
                             </div>
                           )}
-                        </div>
-                      </div>
-                    ))}
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
                   </div>
                 )}
               </div>
             </div>
             {selectionMode && selectedIds.size > 0 && (
-              <div className="p-6 bg-zinc-900 border-t border-white/5 flex items-center justify-between gap-4 safe-area-bottom">
-                <span className="text-sm font-black text-white uppercase tracking-tighter">{selectedIds.size} ITEMS SELECTED</span>
-                <div className="flex gap-3">
-                  <Button
-                    variant="destructive"
-                    onClick={handleBulkDelete}
-                    className="rounded-full px-6 font-black uppercase tracking-widest text-xs h-12"
-                  >
-                    PURGE
-                  </Button>
-                </div>
-              </div>
+              <motion.div 
+                initial={{ y: 50 }} 
+                animate={{ y: 0 }}
+                className="p-6 bg-zinc-900 border-t border-white/10 flex items-center justify-between safe-area-bottom"
+              >
+                <span className="text-sm font-black text-white uppercase tracking-tighter">{selectedIds.size} SELECTED</span>
+                <Button
+                  variant="destructive"
+                  onClick={handleBulkDelete}
+                  className="rounded-full px-8 font-black uppercase tracking-widest text-xs h-12 shadow-lg"
+                >
+                  PURGE SELECTION
+                </Button>
+              </motion.div>
             )}
           </Drawer.Content>
         </Drawer.Portal>
       </Drawer.Root>
-      <Lightbox
-        isOpen={!!selectedImage}
-        onClose={() => setSelectedImage(null)}
-        imageUrl={selectedImage?.url || null}
-        prompt={selectedImage?.prompt || ''}
-      />
+      {activeLightboxImage && (
+        <Lightbox
+          isOpen={!!selectedImageId}
+          onClose={() => setSelectedImageId(null)}
+          imageUrl={objectUrls.get(activeLightboxImage.id) || null}
+          prompt={activeLightboxImage.prompt}
+        />
+      )}
     </>
   );
 }
