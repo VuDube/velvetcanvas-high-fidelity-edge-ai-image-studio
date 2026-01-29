@@ -48,12 +48,11 @@ export class ChatAgent extends Agent<Env, ChatState> {
     try {
       const promptHash = await this.sha256(prompt + (negative_prompt || ""));
       const cacheKey = `img_cache_${promptHash}`;
-      // Check Durable Object storage for instant cache hit
       const cachedImage = await this.ctx.storage.get<string>(cacheKey);
       if (cachedImage) {
         return Response.json({ success: true, image: cachedImage, cached: true });
       }
-      // @ts-expect-error - access AI binding from env provided by Cloudflare
+      // Safe access to AI binding which is typically injected by Cloudflare
       const ai = (this.env as any).AI;
       if (!ai) {
         throw new Error("AI Binding not found. Check wrangler configuration.");
@@ -69,7 +68,6 @@ export class ChatAgent extends Agent<Env, ChatState> {
       const response = await ai.run("@cf/stabilityai/stable-diffusion-xl-base-1.0", inputs);
       const binaryData = await response.arrayBuffer();
       const base64 = btoa(String.fromCharCode(...new Uint8Array(binaryData)));
-      // Persist to DO storage for future identical prompts
       await this.ctx.storage.put(cacheKey, base64);
       return Response.json({
         success: true,
