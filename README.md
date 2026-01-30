@@ -1,6 +1,6 @@
 # Cloudflare AI Chat Agent Template
 
-[cloudflarebutton]
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/VuDube/velvetcanvas-high-fidelity-edge-ai-image-studio)
 
 A production-ready full-stack template for building scalable AI-powered chat applications on Cloudflare Workers. Features multi-session chat management, streaming responses, tool calling (web search, weather, extensible MCP tools), and a modern React frontend with Shadcn/UI.
 
@@ -110,7 +110,7 @@ const sessions = await chatService.listSessions();
    wrangler secret put CF_AI_API_KEY
    ```
 
-[cloudflarebutton]
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/VuDube/velvetcanvas-high-fidelity-edge-ai-image-studio)
 
 Assets are served as SPA. API routes proxied to `/api/*`. Custom domains supported.
 
