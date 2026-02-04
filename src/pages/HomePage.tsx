@@ -3,12 +3,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { ImageGenerator } from '@/components/ImageGenerator';
 import { Zap, Info, ShieldAlert, Download, Activity } from 'lucide-react';
 import { usePWA } from '@/hooks/use-pwa';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+
 function Header() {
   const { isInstallable, install } = usePWA();
   return (
@@ -39,27 +34,13 @@ function Header() {
             <span className="hidden sm:inline">Install</span>
           </button>
         )}
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button className="p-2.5 hover:bg-white/5 rounded-full transition-colors text-zinc-500 hover:text-white">
-                <Info className="w-5 h-5" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-xs bg-zinc-950 border-zinc-800 text-zinc-300 p-4 shadow-2xl rounded-2xl">
-              <div className="space-y-3">
-                <p className="font-black flex items-center gap-2 text-white uppercase text-xs tracking-wider">
-                  <ShieldAlert className="w-4 h-4 text-orange-500" />
-                  Edge Protocols
-                </p>
-                <div className="h-px bg-white/5 w-full" />
-                <p className="text-[11px] leading-relaxed text-zinc-400 font-medium">
-                  Direct SDXL Base 1.0 integration. Uncensored creativity on Cloudflare Edge. Persistent local storage with binary optimization.
-                </p>
-              </div>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <button 
+          className="p-2.5 hover:bg-white/5 rounded-full transition-colors text-zinc-500 hover:text-white" 
+          title="Edge Protocols
+Direct SDXL Base 1.0 integration. Uncensored creativity on Cloudflare Edge. Persistent local storage with binary optimization."
+        >
+          <Info className="w-5 h-5" />
+        </button>
       </div>
     </header>
   );
